@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(docker ps:*)",
+      "Bash(docker inspect:*)",
+      "Bash(docker logs:*)",
+      "Bash(docker exec:*)",
+      "Bash(docker volume:*)",
+      "Bash(docker stop:*)",
+      "Bash(docker rm:*)",
+      "Bash(PGPASSWORD=password psql:*)",
+      "Bash(docker run:*)",
+      "Bash(postgres:15-alpine)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
