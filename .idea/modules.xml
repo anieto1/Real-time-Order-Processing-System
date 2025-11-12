@@ -3,6 +3,7 @@
   <component name="ProjectModuleManager">
     <modules>
       <module fileurl="file://$PROJECT_DIR$/Real-Time-Order-Processing-System.iml" filepath="$PROJECT_DIR$/Real-Time-Order-Processing-System.iml" />
+      <module fileurl="file://$PROJECT_DIR$/notification-service/notification-service.iml" filepath="$PROJECT_DIR$/notification-service/notification-service.iml" />
     </modules>
   </component>
 </project>
