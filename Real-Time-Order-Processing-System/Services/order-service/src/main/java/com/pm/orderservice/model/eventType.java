@@ -1,0 +1,15 @@
+package com.pm.orderservice.model;
+
+public enum eventType {
+    ORDER_CREATED,
+    ORDER_CONFIRMED,
+    ORDER_PROCESSING,
+    ORDER_COMPLETED,
+    ORDER_PENDING,
+    ORDER_FAILED,
+    ORDER_CANCELLED,
+    ORDER_ITEM_ADDED,
+    ORDER_ITEM_REMOVED,
+    ORDER_ITEM_UPDATED,
+    ORDER_ITEM_CANCELLED,
+}
