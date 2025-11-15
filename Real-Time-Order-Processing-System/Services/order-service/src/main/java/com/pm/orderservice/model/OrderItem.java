@@ -1,17 +1,22 @@
 package com.pm.orderservice.model;
 import jakarta.validation.constraints.Size;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
 import jakarta.persistence.*;
-import org.springframework.data.annotation.CreatedDate;
-import org.springframework.data.annotation.LastModifiedDate;
-import java.time.LocalDateTime;
+import lombok.NoArgsConstructor;
+
+import java.math.BigDecimal;
 import java.util.*;
 
 
 @Entity
 @Table(name = "orderItems")
 @Data
-public class orderItem {
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
+public class OrderItem {
 
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
@@ -20,7 +25,7 @@ public class orderItem {
 
     @ManyToOne
     @JoinColumn(name = "order_id", nullable = false)
-    private order order;
+    private Order order;
 
     @Column(name = "product_id", nullable = false)
     private UUID productId;
@@ -30,5 +35,5 @@ public class orderItem {
     private int quantity;
 
     @Column(name = "price", nullable = false)
-    private double price;
+    private BigDecimal price;
 }
