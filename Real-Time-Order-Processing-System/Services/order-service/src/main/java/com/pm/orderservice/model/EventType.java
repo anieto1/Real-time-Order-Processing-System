@@ -1,6 +1,6 @@
 package com.pm.orderservice.model;
 
-public enum eventType {
+public enum EventType {
     ORDER_CREATED,
     ORDER_CONFIRMED,
     ORDER_PROCESSING,

@@ -1,17 +1,27 @@
 package com.pm.orderservice.model;
 import jakarta.validation.constraints.Size;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
 import jakarta.persistence.*;
+import lombok.NoArgsConstructor;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.LastModifiedDate;
+import org.springframework.data.jpa.domain.support.AuditingEntityListener;
+
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.*;
 
 
 @Entity
-@Table(name = "orders")
+@EntityListeners(AuditingEntityListener.class)
 @Data
-public class order {
+@NoArgsConstructor
+@AllArgsConstructor
+@Builder
+@Table(name = "orders")
+public class Order {
 
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
@@ -23,11 +33,14 @@ public class order {
 
     @Enumerated(EnumType.STRING)
     @Column
-    private status orderStatus = status.PENDING;
+    private Status orderStatus = Status.PENDING;
+
+    @OneToMany(mappedBy = "order", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.LAZY)
+    private List<OrderItem> orderItems = new ArrayList<>();
 
     @Size(min = 0)
     @Column(name = "total_amount", nullable = false)
-    private double totalAmount;
+    private BigDecimal totalAmount;
 
     @CreatedDate
     @Column(name = "createdAt", nullable = false)
@@ -37,8 +50,8 @@ public class order {
     @Column(name = "updatedAt", nullable = false)
     private LocalDateTime updatedAt;
 
-
+    @Version
     @Column(name = "version", nullable = false)
-    private int version;
+    private Long version;
 
 }

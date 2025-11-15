@@ -1,6 +1,6 @@
 package com.pm.orderservice.model;
 
-public enum status {
+public enum Status {
     PENDING,
     CONFIRMED,
     PROCESSING,
