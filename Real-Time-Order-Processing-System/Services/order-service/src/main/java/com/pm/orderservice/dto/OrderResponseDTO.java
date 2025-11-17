@@ -25,7 +25,7 @@ public class OrderResponseDTO {
 
     private BigDecimal totalAmount;
 
-    private List<OrderItemResponseDTO> items;
+    private List<OrderItemResponseDTO> orderItems;
 
     private LocalDateTime createdAt;
 

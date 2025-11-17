@@ -22,5 +22,7 @@
     <orderEntry type="library" name="Maven: org.springframework.data:spring-data-commons:3.5.5" level="project" />
     <orderEntry type="library" name="Maven: org.springframework.data:spring-data-jpa:3.5.5" level="project" />
     <orderEntry type="library" name="Maven: org.springframework:spring-context:6.2.12" level="project" />
+    <orderEntry type="library" name="Maven: org.mapstruct:mapstruct:1.6.3" level="project" />
+    <orderEntry type="library" name="Maven: org.springframework:spring-beans:6.2.12" level="project" />
   </component>
 </module>
