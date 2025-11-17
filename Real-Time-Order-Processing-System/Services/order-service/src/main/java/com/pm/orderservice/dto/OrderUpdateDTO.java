@@ -18,5 +18,5 @@ public class OrderUpdateDTO {
     private UUID customerId;
 
     @Valid
-    private List<OrderItemRequestDTO> items;
+    private List<OrderItemRequestDTO> orderItems;
 }
