@@ -22,5 +22,5 @@ public class OrderRequestDTO {
 
     @NotEmpty(message = "Order must contain at least one item")
     @Valid
-    private List<OrderItemRequestDTO> items;
+    private List<OrderItemRequestDTO> orderItems;
 }
