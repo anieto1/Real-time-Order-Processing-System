@@ -7,9 +7,7 @@ import com.pm.orderservice.exception.InvalidOrderException;
 import com.pm.orderservice.exception.InvalidOrderStateException;
 import com.pm.orderservice.exception.OrderNotFoundException;
 import com.pm.orderservice.mapper.OrderMapper;
-import com.pm.orderservice.model.Order;
-import com.pm.orderservice.model.OrderItem;
-import com.pm.orderservice.model.Status;
+import com.pm.orderservice.model.*;
 import com.pm.orderservice.repository.OrderItemRepository;
 import com.pm.orderservice.repository.OrderRepository;
 import com.pm.orderservice.repository.OutboxEventRepository;
@@ -42,6 +40,14 @@ public class OrderService {
             item.setPrice(price);
             item.setOrder(order);
         }
+        OutboxEvent event = OutboxEvent.builder()
+                .aggregateId(saved.getOrderId())
+                .aggregateType("ORDER")
+                .eventType(EventType.ORDER_CREATED)
+                .payload("{\"orderId\":\"123\", \"customerId\":\"456\"}")
+                .published(false)  // Not published yet
+                .build();
+        outboxEventRepository.save(event);
 
         BigDecimal totalAmount = calculateTotalAmount(order);
         order.setTotalAmount(totalAmount);
