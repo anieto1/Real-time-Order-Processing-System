@@ -25,5 +25,7 @@
     <orderEntry type="library" name="Maven: org.mapstruct:mapstruct:1.6.3" level="project" />
     <orderEntry type="library" name="Maven: org.springframework:spring-beans:6.2.12" level="project" />
     <orderEntry type="library" name="Maven: org.springframework:spring-tx:6.2.12" level="project" />
+    <orderEntry type="library" name="Maven: org.springframework.kafka:spring-kafka:3.3.10" level="project" />
+    <orderEntry type="library" name="Maven: com.fasterxml.jackson.core:jackson-databind:2.19.2" level="project" />
   </component>
 </module>
