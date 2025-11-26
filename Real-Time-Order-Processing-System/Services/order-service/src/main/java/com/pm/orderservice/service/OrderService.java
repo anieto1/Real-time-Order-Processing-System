@@ -40,19 +40,20 @@ public class OrderService {
             item.setPrice(price);
             item.setOrder(order);
         }
-        OutboxEvent event = OutboxEvent.builder()
-                .aggregateId(saved.getOrderId())
-                .aggregateType("ORDER")
-                .eventType(EventType.ORDER_CREATED)
-                .payload("{\"orderId\":\"123\", \"customerId\":\"456\"}")
-                .published(false)  // Not published yet
-                .build();
-        outboxEventRepository.save(event);
 
         BigDecimal totalAmount = calculateTotalAmount(order);
         order.setTotalAmount(totalAmount);
-
         Order savedOrder = orderRepository.save(order);
+
+        OutboxEvent event = OutboxEvent.builder()
+                .aggregateId(savedOrder.getOrderId())
+                .aggregateType("ORDER")
+                .eventType(EventType.ORDER_CREATED)
+                .payload("{\"orderId\":\"123\", \"customerId\":\"456\"}")
+                .published(false)
+                .build();
+        outboxEventRepository.save(event);
+
         return orderMapper.toResponseDTO(savedOrder);
     }
 
