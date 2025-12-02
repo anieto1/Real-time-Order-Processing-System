@@ -16,6 +16,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.util.List;
 import java.util.UUID;
 
 @Service
@@ -62,6 +63,16 @@ public class OrderService {
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new OrderNotFoundException(orderId));
         return orderMapper.toResponseDTO(order);
+    }
+
+    @Transactional(readOnly = true)
+    public Iterable<OrderResponseDTO> getAllOrders() {
+        return orderRepository.findAll().stream().map(orderMapper::toResponseDTO).toList();
+    }
+
+    @Transactional(readOnly = true)
+    public Iterable<OrderResponseDTO> getOrdersByCustomerId(UUID customerId) {
+        return orderRepository.findByCustomerId(customerId).stream().map(orderMapper::toResponseDTO).toList();
     }
 
     @Transactional
