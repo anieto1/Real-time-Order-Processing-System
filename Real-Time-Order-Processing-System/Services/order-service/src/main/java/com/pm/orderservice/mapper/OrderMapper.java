@@ -14,21 +14,9 @@ import java.util.List;
 )
 public interface OrderMapper {
 
-    // ==================== ENTITY TO DTO ====================
-
-    /**
-     * Maps Order entity to OrderResponseDTO
-     * Since both use 'orderItems' field name, no explicit @Mapping needed
-     */
     OrderResponseDTO toResponseDTO(Order order);
     List<OrderResponseDTO> toResponseDTOList(List<Order> orders);
 
-    // ==================== DTO TO ENTITY ====================
-
-    /**
-     * Maps OrderRequestDTO to Order entity
-     * Field 'orderItems' automatically mapped (same name in DTO and entity)
-     */
     @Mapping(target = "orderId", ignore = true)
     @Mapping(target = "orderStatus", ignore = true)
     @Mapping(target = "totalAmount", ignore = true)
@@ -37,12 +25,6 @@ public interface OrderMapper {
     @Mapping(target = "version", ignore = true)
     Order toEntity(OrderRequestDTO dto);
 
-    // ==================== UPDATE EXISTING ENTITY ====================
-
-    /**
-     * Updates existing Order from OrderUpdateDTO
-     * Only non-null fields are updated
-     */
     @Mapping(target = "orderId", ignore = true)
     @Mapping(target = "orderStatus", ignore = true)
     @Mapping(target = "totalAmount", ignore = true)

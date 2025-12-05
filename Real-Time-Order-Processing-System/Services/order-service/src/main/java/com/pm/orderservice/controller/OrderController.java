@@ -7,8 +7,11 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 import java.util.UUID;
 
 @RequiredArgsConstructor
@@ -19,34 +22,34 @@ public class OrderController {
 
     private final OrderService orderService;
 
-    @PostMapping("/api/orders")
+    @PostMapping
     @Operation(summary = "Create Order", description = "Create a new order")
     public ResponseEntity<OrderResponseDTO> createOrder(@Valid @RequestBody OrderRequestDTO orderRequestDTO){
         return ResponseEntity.ok(orderService.createOrder(orderRequestDTO));
     }
 
-    @GetMapping("/api/orders/{orderId}")
+    @GetMapping("/{orderId}")
     @Operation(summary = "Get order by ID", description = "Get users order by order ID")
     public ResponseEntity<OrderResponseDTO> getOrderById(@Valid @PathVariable UUID orderId){
         OrderResponseDTO order = orderService.getOrderById(orderId);
         return ResponseEntity.ok(order);
     }
 
-    @GetMapping("/api/orders")
+    @GetMapping
     @Operation(summary = "List Orders", description = "Listing orders using pagination")
-    public ResponseEntity<Iterable<OrderResponseDTO>> listOrders(@RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "10") int size){
-        Iterable<OrderResponseDTO> orders = orderService.getAllOrders();
+    public ResponseEntity<Page<OrderResponseDTO>> listOrders(@RequestParam(defaultValue = "0") int page, @RequestParam(defaultValue = "10") int size){
+        Page<OrderResponseDTO> orders = orderService.getAllOrders(page, size);
         return ResponseEntity.ok(orders);
     }
 
-    @GetMapping("/api/orders/customer/{customerId}")
+    @GetMapping("/customer/{customerId}")
     @Operation(summary = "Get customer orders", description = "Getting customer orders via their ID")
-    public ResponseEntity<Iterable<OrderResponseDTO>> getCustomerOrders(@PathVariable UUID customerId){
-        Iterable<OrderResponseDTO> orders = orderService.getOrdersByCustomerId(customerId);
+    public ResponseEntity<List<OrderResponseDTO>> getCustomerOrders(@PathVariable UUID customerId){
+        List<OrderResponseDTO> orders = orderService.getOrdersByCustomerId(customerId);
         return ResponseEntity.ok(orders);
     }
 
-    @PatchMapping("/api/orders/{orderId}/cancel")
+    @PatchMapping("/{orderId}/cancel")
     @Operation(summary = "Cancel Order", description = "Cancel an order")
     public ResponseEntity<OrderResponseDTO> cancelOrder(@PathVariable UUID orderId){
         OrderResponseDTO order = orderService.cancelOrder(orderId);
