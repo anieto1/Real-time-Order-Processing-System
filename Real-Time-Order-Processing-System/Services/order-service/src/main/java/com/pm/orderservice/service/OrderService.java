@@ -1,5 +1,7 @@
 package com.pm.orderservice.service;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.pm.orderservice.dto.OrderRequestDTO;
 import com.pm.orderservice.dto.OrderResponseDTO;
 import com.pm.orderservice.dto.OrderUpdateDTO;
@@ -12,6 +14,11 @@ import com.pm.orderservice.repository.OrderItemRepository;
 import com.pm.orderservice.repository.OrderRepository;
 import com.pm.orderservice.repository.OutboxEventRepository;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -21,12 +28,14 @@ import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class OrderService {
 
     private final OrderRepository orderRepository;
     private final OrderItemRepository orderItemRepository;
     private final OutboxEventRepository outboxEventRepository;
     private final OrderMapper orderMapper;
+    private final ObjectMapper objectMapper;
 
     @Transactional
     public OrderResponseDTO createOrder(OrderRequestDTO orderRequestDTO) {
@@ -37,8 +46,6 @@ public class OrderService {
         Order order = orderMapper.toEntity(orderRequestDTO);
 
         for (OrderItem item : order.getOrderItems()) {
-            BigDecimal price = fetchProductPrice(item.getProductId());
-            item.setPrice(price);
             item.setOrder(order);
         }
 
@@ -46,11 +53,21 @@ public class OrderService {
         order.setTotalAmount(totalAmount);
         Order savedOrder = orderRepository.save(order);
 
+        // Create outbox event with actual order data
+        String payload;
+        try {
+            OrderResponseDTO orderResponse = orderMapper.toResponseDTO(savedOrder);
+            payload = objectMapper.writeValueAsString(orderResponse);
+        } catch (JsonProcessingException e) {
+            log.error("Failed to serialize order to JSON for orderId: {}", savedOrder.getOrderId(), e);
+            throw new RuntimeException("Failed to create order event", e);
+        }
+
         OutboxEvent event = OutboxEvent.builder()
                 .aggregateId(savedOrder.getOrderId())
                 .aggregateType("ORDER")
                 .eventType(EventType.ORDER_CREATED)
-                .payload("{\"orderId\":\"123\", \"customerId\":\"456\"}")
+                .payload(payload)
                 .published(false)
                 .build();
         outboxEventRepository.save(event);
@@ -66,13 +83,17 @@ public class OrderService {
     }
 
     @Transactional(readOnly = true)
-    public Iterable<OrderResponseDTO> getAllOrders() {
-        return orderRepository.findAll().stream().map(orderMapper::toResponseDTO).toList();
+    public Page<OrderResponseDTO> getAllOrders(int page, int size) {
+        Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
+        Page<Order> orderPage = orderRepository.findAll(pageable);
+        return orderPage.map(orderMapper::toResponseDTO);
     }
 
     @Transactional(readOnly = true)
-    public Iterable<OrderResponseDTO> getOrdersByCustomerId(UUID customerId) {
-        return orderRepository.findByCustomerId(customerId).stream().map(orderMapper::toResponseDTO).toList();
+    public List<OrderResponseDTO> getOrdersByCustomerId(UUID customerId) {
+        return orderRepository.findByCustomerId(customerId).stream()
+                .map(orderMapper::toResponseDTO)
+                .toList();
     }
 
     @Transactional
@@ -145,7 +166,10 @@ public class OrderService {
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 
-    private BigDecimal fetchProductPrice(UUID productId) {
-        return BigDecimal.valueOf(99.99);
-    }
+     //TODO: Implement this method when Product Service is integrated
+     //This will fetch real-time product prices and validate product IDs
+     private BigDecimal fetchProductPrice(UUID productId) {
+         // Will call Product Service via REST or gRPC
+         throw new UnsupportedOperationException("Product Service integration pending");
+     }
 }

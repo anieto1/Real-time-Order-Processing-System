@@ -19,7 +19,7 @@ public interface OrderItemMapper {
 
     @Mapping(target = "itemId", ignore = true)
     @Mapping(target = "order", ignore = true)
-    @Mapping(target = "price", ignore = true)
+    // TODO: Re-ignore price field once Product Service integration is implemented
     OrderItem toEntity(OrderItemRequestDTO dto);
     List<OrderItem> toEntityList(List<OrderItemRequestDTO> dtos);
 }
