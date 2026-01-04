@@ -50,4 +50,10 @@ public class DeadLetterEvent {
 
     @Column(name = "resolved", nullable = false)
     private boolean resolved = false;
+
+    @Column(name = "resolved_at")
+    private LocalDateTime resolvedAt;
+
+    @Column(name = "resolved_by")
+    private String resolvedBy;
 }

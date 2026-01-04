@@ -1,23 +1,18 @@
 package com.pm.orderservice.exception;
 
 import lombok.AllArgsConstructor;
-import lombok.Builder;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
+import lombok.experimental.SuperBuilder;
 
 import java.util.Map;
 
 @Data
-@Builder
+@SuperBuilder
 @NoArgsConstructor
 @AllArgsConstructor
-@EqualsAndHashCode(callSuper = false)
+@EqualsAndHashCode(callSuper = true)
 public class ValidationErrorResponse extends ErrorResponse {
     private Map<String, String> validationErrors;
-    private java.time.LocalDateTime timestamp;
-    private int status;
-    private String error;
-    private String message;
-    private String path;
 }

@@ -1,0 +1,90 @@
+server:
+  port: 0  # Random port for tests
+
+spring:
+  application:
+    name: order-service-test
+
+  # H2 In-Memory Database for Testing
+  datasource:
+    url: jdbc:h2:mem:testdb;MODE=PostgreSQL;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+    username: sa
+    password:
+    driver-class-name: org.h2.Driver
+    hikari:
+      maximum-pool-size: 5
+      connection-timeout: 10000
+
+  # JPA Configuration for Tests
+  jpa:
+    database-platform: org.hibernate.dialect.H2Dialect
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: false
+        use_sql_comments: false
+
+  # Kafka Configuration for Tests (will use @EmbeddedKafka in tests)
+  kafka:
+    bootstrap-servers: ${spring.embedded.kafka.brokers:localhost:9092}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+    consumer:
+      group-id: order-service-test-group
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      auto-offset-reset: earliest
+
+  # Disable Redis for tests
+  data:
+    redis:
+      enabled: false
+
+  # Jackson Configuration
+  jackson:
+    serialization:
+      write-dates-as-timestamps: false
+    deserialization:
+      fail-on-unknown-properties: false
+
+# Actuator Configuration for Tests
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,metrics
+  endpoint:
+    health:
+      show-details: always
+
+# Logging Configuration for Tests
+logging:
+  level:
+    root: WARN
+    com.pm.orderservice: DEBUG
+    org.springframework.kafka: WARN
+    org.springframework.test: INFO
+    org.hibernate: WARN
+  pattern:
+    console: "%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"
+
+# Application-specific Configuration for Tests
+app:
+  kafka:
+    topics:
+      order-events: test-order-events
+      order-commands: test-order-commands
+
+  outbox:
+    processing:
+      fixed-rate: 1000  # Faster for tests
+      max-retries: 2
+      batch-size: 50
+
+# Disable OpenTelemetry for tests
+otel:
+  sdk:
+    disabled: true

@@ -1,11 +1,15 @@
 package com.pm.orderservice.controller;
 
 import com.pm.orderservice.model.DeadLetterEvent;
+import com.pm.orderservice.model.OutboxEvent;
 import com.pm.orderservice.repository.DeadLetterEventRepository;
+import com.pm.orderservice.repository.OutboxEventRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.HashMap;
 import java.util.List;
@@ -19,6 +23,7 @@ import java.util.UUID;
 public class DeadLetterQueueController {
 
     private final DeadLetterEventRepository deadLetterEventRepository;
+    private final OutboxEventRepository outboxEventRepository;
 
     @GetMapping("/unresolved")
     public ResponseEntity<List<DeadLetterEvent>> getUnresolvedEvents() {
@@ -49,7 +54,38 @@ public class DeadLetterQueueController {
             .orElse(ResponseEntity.notFound().build());
     }
 
-    // TODO: Add reprocessing endpoints later
-    // - POST /{dlqId}/reprocess
-    // - POST /reprocess-all
-}
+
+    @PostMapping("/{dlqId}/reprocess")
+    public ResponseEntity<String> reprocessEvent(@PathVariable UUID dlqId, @RequestParam String resolvedBy) {
+
+        DeadLetterEvent dlqEvent = deadLetterEventRepository.findById(dlqId)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "DLQ event not found"));
+
+        if (dlqEvent.isResolved()) {
+            log.info("Event {} already resolved", dlqId);
+            return ResponseEntity.badRequest().build();
+        }
+
+        OutboxEvent originalEvent = outboxEventRepository.findById(dlqEvent.getOriginalEventId())
+                .orElseThrow(()-> new ResponseStatusException(HttpStatus.NOT_FOUND, "Original event not found"));
+
+        originalEvent.setPublished(false);
+        originalEvent.setRetryCount(0);
+        originalEvent.setPublishedAt(null);
+        outboxEventRepository.save(originalEvent);
+
+        dlqEvent.setResolved(true);
+
+        dlqEvent.setResolvedBy(resolvedBy);
+        dlqEvent.setResolvedAt(java.time.LocalDateTime.now());
+        deadLetterEventRepository.save(dlqEvent);
+
+        return ResponseEntity.ok("Event queued for reprocessing");
+
+    }
+
+    //@PostMapping
+    //Reprocess-all method
+
+    }
+

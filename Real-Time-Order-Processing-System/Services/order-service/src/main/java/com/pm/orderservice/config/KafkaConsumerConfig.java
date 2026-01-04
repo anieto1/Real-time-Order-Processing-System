@@ -32,7 +32,6 @@ public class KafkaConsumerConfig {
         configs.put(ConsumerConfig.MAX_POLL_INTERVAL_MS_CONFIG, 300000);  // 5 minutes
         configs.put(ConsumerConfig.SESSION_TIMEOUT_MS_CONFIG, 30000);  // 30 seconds
         configs.put(ConsumerConfig.HEARTBEAT_INTERVAL_MS_CONFIG, 10000);  // 10 seconds
-
         return configs;
     }
 

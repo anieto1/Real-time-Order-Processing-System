@@ -11,7 +11,6 @@ import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
 import java.time.LocalDateTime;
 import java.util.List;
 
@@ -26,6 +25,7 @@ public class OutBoxProcessor {
 
     private static final int MAX_RETRIES = 3;
     private static final String MAIN_TOPIC = "order-events";
+    private static final String DLQ_TOPIC = "order-events-dlq";
 
     @Transactional
     @Scheduled(fixedRate = 5000)
@@ -33,7 +33,7 @@ public class OutBoxProcessor {
         List<OutboxEvent> events = outboxEventRepository.findTop100ByPublishedFalseOrderByCreatedAt();
 
         if (events.isEmpty()) {
-            log.debug("No unpublished events found");
+            log.info("No outbox events found");
             return;
         }
 
@@ -78,6 +78,10 @@ public class OutBoxProcessor {
 
     private void moveToDeadLetterQueue(OutboxEvent event, Exception exception) {
         try {
+            kafkaTemplate.send(DLQ_TOPIC,
+                    event.getAggregateId().toString(),
+                    event.getPayload());
+
             DeadLetterEvent dlqEvent = DeadLetterEvent.builder()
                 .originalEventId(event.getEventId())
                 .aggregateId(event.getAggregateId())
