@@ -1,0 +1,30 @@
+# Build output
+target/
+
+# IDE
+.idea/
+*.iml
+.vscode/
+
+# Git
+.git/
+.gitignore
+
+# Documentation
+*.md
+docs/
+
+# Logs
+*.log
+logs/
+
+# Environment files
+.env
+.env.*
+
+# Test files (tests run in CI, not in Docker build)
+src/test/
+
+# OS files
+.DS_Store
+Thumbs.db
