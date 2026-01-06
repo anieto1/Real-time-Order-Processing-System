@@ -1,0 +1,10 @@
+package com.pm.inventoryservice.model;
+
+public enum EventType {
+    STOCK_RESERVED,
+    STOCK_RELEASED,
+    STOCK_DEDUCTED,
+    STOCK_INSUFFICIENT,
+    LOW_STOCK_ALERT,
+    STOCK_RESTOCKED
+}

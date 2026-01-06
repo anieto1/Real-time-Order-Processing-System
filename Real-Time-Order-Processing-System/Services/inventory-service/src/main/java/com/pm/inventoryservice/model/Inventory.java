@@ -21,10 +21,47 @@ import java.util.*;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-@Table(name = "orders")
+@Table(name = "inventory")
 public class Inventory {
 
+    @Id
+    @GeneratedValue(strategy = GenerationType.UUID)
+    @Column(name = "inventory_id", nullable = false)
+    private UUID inventoryId;
+    
+    @Column(name = "product_id", nullable = false)
+    private UUID productId;
+    
+    @Column(name = "sku", nullable = false)
+    private String sku;
+    
+    @Column(name = "quantityAvailable", nullable = false)
+    @Size(min = 0)
+    private int quantityAvailable;
+    
+    @Column(name = "quantityReserved", nullable = false)
+    @Size(min = 0)
+    private int quantityReserved;
+    
+    @Column(name = "reorderLevel", nullable = false)
+    private int reorderLevel;
 
+    @Column(name = "reorderQuantity", nullable = false)
+    private int reorderQuantity;
 
+    @Column(name = "warehouseLocation")
+    private String warehouseLocation;
+
+    @CreatedDate
+    @Column(name = "createdAt", nullable = false)
+    private LocalDateTime createdAt;
+
+    @LastModifiedDate
+    @Column(name = "updatedAt", nullable = false)
+    private LocalDateTime updatedAt;
+
+    @Version
+    @Column(name = "version", nullable = false)
+    private Long version;
 
 }
