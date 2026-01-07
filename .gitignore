@@ -1,0 +1,278 @@
+# ============================================
+# Claude AI Files
+# ============================================
+/.claude/
+.claude/
+*.claude.md
+
+# ============================================
+# Environment & Credentials
+# ============================================
+.env
+.env.local
+.env.*.local
+*.env
+
+# Credentials and secrets
+**/credentials.json
+**/secrets.yml
+**/secrets.yaml
+**/.secrets/
+**/keystore
+**/truststore
+*.pem
+*.key
+*.crt
+*.p12
+*.jks
+
+# Production configuration
+**/application-prod.yml
+**/application-prod.yaml
+**/application-production.yml
+**/application-production.yaml
+**/bootstrap-prod.yml
+**/bootstrap-prod.yaml
+
+# AWS credentials
+.aws/
+
+# Docker production overrides
+docker-compose.override.yml
+docker-compose.prod.yml
+docker-compose.local.yml
+
+# ============================================
+# IDE Files
+# ============================================
+# IntelliJ IDEA
+.idea/
+*.iml
+*.iws
+*.ipr
+out/
+.idea_modules/
+.idea/**/workspace.xml
+.idea/**/tasks.xml
+.idea/**/usage.statistics.xml
+.idea/**/dictionaries
+.idea/**/shelf
+
+# VS Code
+.vscode/
+*.code-workspace
+.history/
+
+# Eclipse
+.metadata
+.classpath
+.project
+.settings/
+bin/
+tmp/
+*.tmp
+*.bak
+*.swp
+*~.nib
+local.properties
+.loadpath
+.recommenders
+
+# NetBeans
+/nbproject/private/
+/nbbuild/
+/dist/
+/nbdist/
+/.nb-gradle/
+
+# ============================================
+# Build & Dependencies
+# ============================================
+# Maven
+target/
+pom.xml.tag
+pom.xml.releaseBackup
+pom.xml.versionsBackup
+pom.xml.next
+release.properties
+dependency-reduced-pom.xml
+buildNumber.properties
+.mvn/timing.properties
+.mvn/wrapper/maven-wrapper.jar
+
+# Gradle
+.gradle/
+build/
+!gradle/wrapper/gradle-wrapper.jar
+!**/src/main/**/build/
+!**/src/test/**/build/
+
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+package-lock.json
+yarn.lock
+
+# ============================================
+# Java
+# ============================================
+*.class
+*.jar
+*.war
+*.ear
+*.zip
+*.tar.gz
+*.rar
+hs_err_pid*
+
+# ============================================
+# Spring Boot
+# ============================================
+spring-boot-*.log
+*.log
+logs/
+**/logs/
+
+# ============================================
+# Database Files
+# ============================================
+# H2 Database
+*.db
+*.h2.db
+*.mv.db
+*.trace.db
+
+# PostgreSQL dumps
+*.sql.backup
+*.dump
+pgdata/
+postgres_data/
+
+# Redis
+redis_data/
+
+# Database migration scratch files
+**/db/scratch/
+
+# ============================================
+# Docker & Container Data
+# ============================================
+kafka_data/
+zookeeper_data/
+prometheus_data/
+grafana_data/
+
+# ============================================
+# Kafka & Messaging
+# ============================================
+kafka-logs/
+**/kafka-logs/
+connect.offsets
+
+# ============================================
+# Monitoring & Metrics
+# ============================================
+# Prometheus
+**/prometheus/data/
+
+# Grafana
+**/grafana/data/
+**/grafana.db
+
+# Jaeger
+**/jaeger/data/
+
+# ============================================
+# Testing
+# ============================================
+**/test-output/
+**/test-results/
+coverage/
+.pytest_cache/
+htmlcov/
+
+# JaCoCo
+**/jacoco.exec
+**/jacoco/
+
+# ============================================
+# Logs
+# ============================================
+*.log
+*.log.*
+log/
+application.log
+spring.log
+
+# ============================================
+# Operating System Files
+# ============================================
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# Windows
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# Linux
+*~
+.directory
+.Trash-*
+
+# ============================================
+# Temporary & Backup Files
+# ============================================
+*.tmp
+*.temp
+*.swp
+*.swo
+*~
+.#*
+*.backup
+*.bak
+*.orig
+
+# ============================================
+# Local Development & Notes
+# ============================================
+# Personal notes and documentation
+Notes/
+NOTES.md
+TODO.txt
+scratch.txt
+
+# Local configuration overrides
+application-local.properties
+bootstrap-local.properties
+**/application-local.yml
+**/bootstrap-local.yml
+
+# ============================================
+# Documentation Build
+# ============================================
+**/site/
+docs/_build/
+
+# ============================================
+# CI/CD
+# ============================================
+.gitlab-ci-local/
+
+# ============================================
+# Keep These Files (Exceptions)
+# ============================================
+# Keep empty directories
+!.gitkeep
+
+# Keep example/template files
+!**/*.example
+!**/*.template
