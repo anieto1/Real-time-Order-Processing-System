@@ -222,6 +222,7 @@ local.properties
 *.swo
 *~
 .#*
+.claude/
 
 # ============================================
 # Node.js (if frontend added later)
