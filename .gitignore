@@ -4,6 +4,7 @@
 /.claude/
 .claude/
 *.claude.md
+.claude*
 
 # ============================================
 # Environment & Credentials
@@ -276,5 +277,3 @@ docs/_build/
 # Keep example/template files
 !**/*.example
 !**/*.template
-.idea/
-.claude*
