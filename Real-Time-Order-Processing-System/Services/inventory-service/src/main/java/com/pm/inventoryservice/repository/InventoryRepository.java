@@ -7,6 +7,7 @@ import org.springframework.data.jpa.repository.Lock;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 @Repository
@@ -14,14 +15,13 @@ public interface InventoryRepository extends JpaRepository<Inventory, UUID> {
     Inventory findByProductId(UUID productId);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
-    Inventory findByProductIdForUpdate(UUID productId);
-
+    Optional<Inventory> findByProductIdForUpdate(UUID productId);
+    Optional<Inventory> findBySku(String sku);
     boolean existsByProductId(UUID productId);
-
-    Inventory findBySku(String sku);
+    boolean existsBySku(String sku);
     List<Inventory> findByQuantityAvailableLessThanEqual(Integer quantity);
-    
-            
+
+
     
     
 }

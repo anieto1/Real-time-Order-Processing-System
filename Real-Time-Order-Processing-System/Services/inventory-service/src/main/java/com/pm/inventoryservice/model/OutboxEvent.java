@@ -21,17 +21,17 @@ import java.util.UUID;
 public class OutboxEvent {
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
-    @Column(name = "event_id", nullable = false)
+    @Column(name = "eventId", nullable = false)
     private UUID eventId;
 
-    @Column(name = "aggregate_id", nullable = false)
+    @Column(name = "aggregateId", nullable = false)
     private UUID aggregateId;
 
-    @Column(name = "aggregate_type", nullable = false)
-    private String aggregateType = "ORDER";
+    @Column(name = "aggregateType", nullable = false)
+    private String aggregateType = "INVENTORY";
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "event_type", nullable = false)
+    @Column(name = "eventType", nullable = false)
     private EventType eventType;
 
     @Column(name = "payload", nullable = false)
@@ -40,7 +40,7 @@ public class OutboxEvent {
     @Column(name = "published", nullable = false)
     private boolean published = false;
 
-    @Column(name = "retry_count", nullable = false)
+    @Column(name = "retryCount", nullable = false)
     private int retryCount = 0;
 
     @CreatedDate

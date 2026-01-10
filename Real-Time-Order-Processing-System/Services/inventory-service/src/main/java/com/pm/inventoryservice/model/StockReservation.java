@@ -23,13 +23,13 @@ public class StockReservation {
 
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
-    @Column(name = "reservation_id", nullable = false)
+    @Column(name = "reservation_id", nullable = false, unique = true)
     private UUID reservationId;
 
-    @Column(name = "order_id", nullable = false)
+    @Column(name = "order_id", nullable = false, unique = true)
     private UUID orderId;
 
-    @Column(name = "product_id", nullable = false)
+    @Column(name = "product_id", nullable = false, unique = true)
     private UUID productId;
 
     @Min(1)

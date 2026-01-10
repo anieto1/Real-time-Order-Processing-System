@@ -1,5 +1,6 @@
 package com.pm.inventoryservice.model;
 
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.Size;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -26,21 +27,24 @@ public class Inventory {
 
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
-    @Column(name = "inventory_id", nullable = false)
+    @Column(name = "inventoryId", nullable = false)
     private UUID inventoryId;
     
-    @Column(name = "product_id", nullable = false)
+    @Column(name = "productId", nullable = false)
     private UUID productId;
+
+    @Column(name = "productName", nullable = false)
+    private String productName;
     
-    @Column(name = "sku", nullable = false)
+    @Column(name = "sku", nullable = false, unique = true)
     private String sku;
     
     @Column(name = "quantityAvailable", nullable = false)
-    @Size(min = 0)
+    @Min(0)
     private int quantityAvailable;
     
     @Column(name = "quantityReserved", nullable = false)
-    @Size(min = 0)
+    @Min(0)
     private int quantityReserved;
     
     @Column(name = "reorderLevel", nullable = false)

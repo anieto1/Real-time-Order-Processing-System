@@ -12,12 +12,13 @@ import java.util.UUID;
 @Repository
 public interface StockReservationRepository extends JpaRepository<StockReservation, UUID> {
     
-    StockReservation findByOrderId(UUID orderId);
-
-    StockReservation findByOrderIdAndProductId(UUID orderId, UUID productId);
+    List<StockReservation> findByOrderId(UUID orderId);
 
     List<StockReservation> findByStatusAndExpiresAtBefore(ReservationStatus status, LocalDateTime time);
 
     List<StockReservation> findByProductIdAndStatus(UUID productId, ReservationStatus status);
 
+    StockReservation findByOrderIdAndProductId(UUID orderId, UUID productId);
+
+    List<StockReservation> findByAllByOrderId(UUID orderId);
 }
