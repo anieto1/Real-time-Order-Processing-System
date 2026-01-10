@@ -9,4 +9,9 @@ import org.springframework.stereotype.Service;
 @RequiredArgsConstructor
 @Slf4j
 public class InventoryService {
+
+    private final InventoryRepository inventoryRepository;
+    private final OutboxEventRepository outboxEventRepository;
+    private final InventoryMapper inventoryMapper;
+
 }
