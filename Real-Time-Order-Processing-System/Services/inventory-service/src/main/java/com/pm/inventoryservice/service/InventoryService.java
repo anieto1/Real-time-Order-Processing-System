@@ -140,12 +140,11 @@ public class InventoryService {
 
 
 
-//TODO:
-//    @Transactional
-//    public InventoryResponseDTO deleteInventory(UUID productId){
-//        Inventory inventory = inventoryRepository.findByProductId(productId)
-//                .orElseThrow(()-> new InventoryNotFoundException(productId.toString()));
-//    }
+    @Transactional
+    public InventoryResponseDTO deleteInventory(UUID productId){
+        Inventory inventory = inventoryRepository.findByProductId(productId)
+                .orElseThrow(()-> new InventoryNotFoundException(productId.toString()));
+    }
 
 
     private void checkAndPublishLowStockAlert(Inventory inventory) {
