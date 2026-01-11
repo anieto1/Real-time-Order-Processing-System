@@ -67,5 +67,4 @@ public class Inventory {
     @Version
     @Column(name = "version", nullable = false)
     private Long version;
-
 }

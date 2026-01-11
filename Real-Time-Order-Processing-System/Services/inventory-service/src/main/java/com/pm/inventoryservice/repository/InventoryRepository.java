@@ -12,7 +12,7 @@ import java.util.UUID;
 
 @Repository
 public interface InventoryRepository extends JpaRepository<Inventory, UUID> {
-    Inventory findByProductId(UUID productId);
+    Optional<Inventory> findByProductId(UUID productId);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     Optional<Inventory> findByProductIdForUpdate(UUID productId);
