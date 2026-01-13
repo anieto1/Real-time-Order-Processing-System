@@ -5,7 +5,9 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.pm.inventoryservice.dto.request.InventoryCreateRequestDTO;
 import com.pm.inventoryservice.dto.request.InventoryUpdateRequestDTO;
+import com.pm.inventoryservice.dto.request.ReservationItemDTO;
 import com.pm.inventoryservice.dto.response.InventoryResponseDTO;
+import com.pm.inventoryservice.dto.response.StockCheckResponseDTO;
 import com.pm.inventoryservice.exception.InventoryNotFoundException;
 import com.pm.inventoryservice.exception.StockOperationException;
 import com.pm.inventoryservice.mapper.InventoryMapper;
@@ -15,6 +17,7 @@ import com.pm.inventoryservice.model.OutboxEvent;
 import com.pm.inventoryservice.model.ReservationStatus;
 import com.pm.inventoryservice.repository.InventoryRepository;
 import com.pm.inventoryservice.repository.OutboxEventRepository;
+import com.pm.inventoryservice.repository.StockMovementRepository;
 import com.pm.inventoryservice.repository.StockReservationRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -26,6 +29,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.UUID;
 
 @Service
@@ -36,6 +41,7 @@ public class InventoryService {
     private final InventoryRepository inventoryRepository;
     private final OutboxEventRepository outboxEventRepository;
     private final StockReservationRepository stockReservationRepository;
+    private final StockMovementRepository stockMovementRepository;
     private final InventoryMapper inventoryMapper;
     private final ObjectMapper objectMapper;
 
@@ -76,9 +82,7 @@ public class InventoryService {
     
     @Transactional(readOnly = true)
     public InventoryResponseDTO getInventoryByProductId(UUID productId){
-        Inventory inventory = inventoryRepository.findByProductId(productId)
-                .orElseThrow(()-> new InventoryNotFoundException(productId.toString()));
-        
+        Inventory inventory = getInventoryOrThrow(productId);
         return inventoryMapper.toResponseDTO(inventory);
     }
     
@@ -98,8 +102,7 @@ public class InventoryService {
 
     @Transactional
     public InventoryResponseDTO updateInventory(UUID productId, InventoryUpdateRequestDTO updateRequestDTO) {
-        Inventory inventory = inventoryRepository.findByProductId(productId)
-                .orElseThrow(() -> new InventoryNotFoundException(productId.toString()));
+        Inventory inventory = getInventoryOrThrow(productId);
 
         if (isEmptyUpdate(updateRequestDTO)) {
             throw new StockOperationException("Update request must contain at least one field to update");
@@ -144,8 +147,7 @@ public class InventoryService {
 
     @Transactional
     public InventoryResponseDTO deleteInventory(UUID productId){
-        Inventory inventory = inventoryRepository.findByProductId(productId)
-                .orElseThrow(()-> new InventoryNotFoundException(productId.toString()));
+        Inventory inventory = getInventoryOrThrow(productId);
 
         if(!stockReservationRepository.findByProductIdAndStatus(productId, ReservationStatus.PENDING).isEmpty()){
             throw new StockOperationException("Cannot delete inventory with pending reservation");
@@ -166,6 +168,71 @@ public class InventoryService {
         return inventoryMapper.toResponseDTO(inventory);
     }
 
+
+
+
+//STOCK OPERATIONS
+
+    @Transactional(readOnly = true)
+    public StockCheckResponseDTO checkStock(UUID productId, int quantity) {
+            Inventory inventory = getInventoryOrThrow(productId);
+            return StockCheckResponseDTO.builder()
+                    .productId(productId)
+                    .available(inventory.getQuantityAvailable() >= quantity)
+                    .quantityAvailable(inventory.getQuantityAvailable())
+                    .quantityRequested(quantity)
+                    .quantityReserved(inventory.getQuantityReserved())
+                    .build();
+        }
+
+    @Transactional(readOnly = true)
+    public List<StockCheckResponseDTO> checkStockBatch(List<ReservationItemDTO> items) {
+        List<StockCheckResponseDTO> results = new ArrayList<>();
+
+        for (ReservationItemDTO item : items) {
+            Inventory inventory = inventoryRepository.findByProductId(item.getProductId()).orElse(null);
+
+            if (inventory == null) {
+                results.add(StockCheckResponseDTO.builder()
+                        .productId(item.getProductId())
+                        .available(false)
+                        .quantityAvailable(0)
+                        .quantityRequested(item.getQuantity())
+                        .quantityReserved(0)
+                        .build());
+            } else {
+                results.add(StockCheckResponseDTO.builder()
+                        .productId(item.getProductId())
+                        .available(inventory.getQuantityAvailable() >= item.getQuantity())
+                        .quantityAvailable(inventory.getQuantityAvailable())
+                        .quantityRequested(item.getQuantity())
+                        .quantityReserved(inventory.getQuantityReserved())
+                        .build());
+            }
+        }
+
+        return results;
+    }
+
+
+    @Transactional
+    public InventoryResponseDTO addStock(UUID productId, int quantity, String reason) {
+        Inventory inventory = getInventoryOrThrow(productId);
+        inventory.setQuantityAvailable(inventory.getQuantityAvailable() + quantity);
+        inventoryRepository.save(inventory);
+        log.info("Added {} to inventory for productId: {}, reason: {}", quantity, productId, reason);
+        return inventoryMapper.toResponseDTO(inventory);
+    }
+
+
+
+
+
+//HELPER METHODS
+    private Inventory getInventoryOrThrow(UUID productId) {
+        return inventoryRepository.findByProductId(productId)
+                .orElseThrow(() -> new InventoryNotFoundException(productId.toString()));
+    }
 
     private void checkAndPublishLowStockAlert(Inventory inventory) {
         if (inventory.getQuantityAvailable() <= inventory.getReorderLevel()) {

@@ -15,5 +15,6 @@ public class StockCheckResponseDTO {
     private UUID productId;
     private boolean available;
     private Integer quantityAvailable;
+    private Integer quantityRequested;
     private Integer quantityReserved;
 }
