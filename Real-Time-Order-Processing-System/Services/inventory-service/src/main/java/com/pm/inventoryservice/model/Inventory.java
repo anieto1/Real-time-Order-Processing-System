@@ -6,6 +6,7 @@ import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
 import jakarta.persistence.*;
+import org.hibernate.annotations.SQLRestriction;
 import lombok.NoArgsConstructor;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.LastModifiedDate;
@@ -18,6 +19,7 @@ import java.util.*;
 
 @Entity
 @EntityListeners(AuditingEntityListener.class)
+@SQLRestriction("deleted_at IS NULL")
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
@@ -63,6 +65,9 @@ public class Inventory {
     @LastModifiedDate
     @Column(name = "updatedAt", nullable = false)
     private LocalDateTime updatedAt;
+
+    @Column(name = "deleted_at")
+    private LocalDateTime deletedAt;
 
     @Version
     @Column(name = "version", nullable = false)

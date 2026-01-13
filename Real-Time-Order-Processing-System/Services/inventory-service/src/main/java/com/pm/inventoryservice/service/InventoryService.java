@@ -12,6 +12,7 @@ import com.pm.inventoryservice.mapper.InventoryMapper;
 import com.pm.inventoryservice.model.EventType;
 import com.pm.inventoryservice.model.Inventory;
 import com.pm.inventoryservice.model.OutboxEvent;
+import com.pm.inventoryservice.model.ReservationStatus;
 import com.pm.inventoryservice.repository.InventoryRepository;
 import com.pm.inventoryservice.repository.OutboxEventRepository;
 import com.pm.inventoryservice.repository.StockReservationRepository;
@@ -24,6 +25,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.UUID;
 
 @Service
@@ -144,6 +146,24 @@ public class InventoryService {
     public InventoryResponseDTO deleteInventory(UUID productId){
         Inventory inventory = inventoryRepository.findByProductId(productId)
                 .orElseThrow(()-> new InventoryNotFoundException(productId.toString()));
+
+        if(!stockReservationRepository.findByProductIdAndStatus(productId, ReservationStatus.PENDING).isEmpty()){
+            throw new StockOperationException("Cannot delete inventory with pending reservation");
+        }
+
+        if(inventory.getQuantityReserved() > 0){
+            throw new StockOperationException("Cannot delete inventory with reserved quantity");
+        }
+
+        if(inventory.getQuantityAvailable() > 0){
+            throw new StockOperationException("Cannot delete inventory with available quantity");
+        }
+
+        outboxEventRepository.deleteByAggregateIdAndPublishedFalse(inventory.getInventoryId());
+        inventory.setDeletedAt(LocalDateTime.now());
+        inventoryRepository.save(inventory);
+        log.info("Deleted inventory for productId: {}", productId);
+        return inventoryMapper.toResponseDTO(inventory);
     }
 
 
