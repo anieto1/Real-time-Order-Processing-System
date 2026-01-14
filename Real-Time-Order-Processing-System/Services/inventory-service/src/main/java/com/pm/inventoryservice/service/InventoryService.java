@@ -3,18 +3,15 @@ package com.pm.inventoryservice.service;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.pm.inventoryservice.dto.request.InventoryCreateRequestDTO;
-import com.pm.inventoryservice.dto.request.InventoryUpdateRequestDTO;
-import com.pm.inventoryservice.dto.request.ReservationItemDTO;
+import com.pm.inventoryservice.dto.request.*;
 import com.pm.inventoryservice.dto.response.InventoryResponseDTO;
 import com.pm.inventoryservice.dto.response.StockCheckResponseDTO;
+import com.pm.inventoryservice.dto.response.StockReservationResponseDTO;
+import com.pm.inventoryservice.exception.InvalidReservationStateException;
 import com.pm.inventoryservice.exception.InventoryNotFoundException;
 import com.pm.inventoryservice.exception.StockOperationException;
 import com.pm.inventoryservice.mapper.InventoryMapper;
-import com.pm.inventoryservice.model.EventType;
-import com.pm.inventoryservice.model.Inventory;
-import com.pm.inventoryservice.model.OutboxEvent;
-import com.pm.inventoryservice.model.ReservationStatus;
+import com.pm.inventoryservice.model.*;
 import com.pm.inventoryservice.repository.InventoryRepository;
 import com.pm.inventoryservice.repository.OutboxEventRepository;
 import com.pm.inventoryservice.repository.StockMovementRepository;
@@ -44,6 +41,8 @@ public class InventoryService {
     private final StockMovementRepository stockMovementRepository;
     private final InventoryMapper inventoryMapper;
     private final ObjectMapper objectMapper;
+
+    private static final int RESERVATION_EXPIRY_MINUTES = 15;
 
     @Transactional
     public InventoryResponseDTO createInventory(InventoryCreateRequestDTO createRequestDTO, Integer quantity) {
@@ -225,10 +224,151 @@ public class InventoryService {
     }
 
 
+    @Transactional
+    public InventoryResponseDTO adjustStock(UUID productId, StockAdjustmentRequestDTO adjustmentRequestDTO){
+        Inventory inventory = getInventoryOrThrow(productId);
+        inventory.setQuantityAvailable(inventory.getQuantityAvailable() + adjustmentRequestDTO.getQuantity());
+        inventoryRepository.save(inventory);
+        log.info("Adjusted inventory for productId: {}, reason: {}", productId, adjustmentRequestDTO.getReason());
+        return inventoryMapper.toResponseDTO(inventory);
+    }
+
+
+//RESERVATION OPERATIONS
+    @Transactional
+    public List<StockReservationResponseDTO> reserveStock(UUID orderId, List<ReservationItemDTO> items) {
+        List<StockReservation> existingReservations = stockReservationRepository.findByOrderId(orderId);
+        if (!existingReservations.isEmpty()) {
+            log.info("Reservations already exist for orderId: {}, returning existing", orderId);
+            return existingReservations.stream()
+                    .map(this::toReservationResponseDTO)
+                    .toList();
+        }
+
+        for (ReservationItemDTO item : items) {
+            Inventory inventory = inventoryRepository.findByProductId(item.getProductId())
+                    .orElseThrow(() -> new InventoryNotFoundException(item.getProductId().toString()));
+
+            if (inventory.getQuantityAvailable() < item.getQuantity()) {
+                log.warn("Insufficient stock for productId: {}, available: {}, requested: {}",
+                        item.getProductId(), inventory.getQuantityAvailable(), item.getQuantity());
+                throw new StockOperationException("Insufficient stock for productId: " + item.getProductId());
+            }
+        }
+
+        List<StockReservationResponseDTO> results = new ArrayList<>();
+        LocalDateTime expiresAt = LocalDateTime.now().plusMinutes(RESERVATION_EXPIRY_MINUTES);
+
+        for (ReservationItemDTO item : items) {
+            Inventory inventory = inventoryRepository.findByProductIdWithLock(item.getProductId())
+                    .orElseThrow(() -> new InventoryNotFoundException(item.getProductId().toString()));
+
+            int previousQuantity = inventory.getQuantityAvailable();
+
+            inventory.setQuantityAvailable(inventory.getQuantityAvailable() - item.getQuantity());
+            inventory.setQuantityReserved(inventory.getQuantityReserved() + item.getQuantity());
+            inventoryRepository.save(inventory);
+
+            StockReservation reservation = StockReservation.builder()
+                    .orderId(orderId)
+                    .productId(item.getProductId())
+                    .quantityReserved(item.getQuantity())
+                    .status(ReservationStatus.PENDING)
+                    .expiresAt(expiresAt)
+                    .build();
+            StockReservation savedReservation = stockReservationRepository.save(reservation);
+
+            StockMovement movement = StockMovement.builder()
+                    .inventoryId(inventory.getInventoryId())
+                    .movementType(MovementType.RESERVATION)
+                    .quantity(item.getQuantity())
+                    .previousQuantity(previousQuantity)
+                    .newQuantity(inventory.getQuantityAvailable())
+                    .referenceId(orderId)
+                    .referenceType("ORDER")
+                    .reason("Stock reserved for order")
+                    .build();
+            stockMovementRepository.save(movement);
+            checkAndPublishLowStockAlert(inventory);
+
+            results.add(toReservationResponseDTO(savedReservation));
+        }
+        publishStockReservedEvent(orderId, items);
+
+        log.info("Reserved stock for orderId: {}, items: {}", orderId, items.size());
+        return results;
+    }
+
+    @Transactional
+    public List<StockReservationResponseDTO> confirmReservation(UUID orderId){
+        List<StockReservation> reservations = stockReservationRepository.findByOrderId(orderId);
+        if(reservations.isEmpty()){
+            throw new StockOperationException("No reservations found for orderId: " + orderId);
+        }
+        for(StockReservation reservation : reservations){
+            if(reservation.getStatus() == ReservationStatus.CONFIRMED){
+                throw new InvalidReservationStateException("Reservation already confirmed for orderId: " + orderId);
+            }
+            if(reservation.getStatus() == ReservationStatus.RELEASED || reservation.getStatus() == ReservationStatus.EXPIRED){
+                throw new InvalidReservationStateException("Reservation already released or expired for orderId: " + orderId);
+            }
+
+            if (reservation.getExpiresAt() != null && reservation.getExpiresAt().isBefore(LocalDateTime.now())) {
+                throw new InvalidReservationStateException("Reservation has expired for orderId: " + orderId);
+            }
+            
+            Inventory inventory = getInventoryOrThrow(reservation.getProductId());
+            inventory.setQuantityReserved(inventory.getQuantityReserved() - reservation.getQuantityReserved());
+            inventory.setQuantityAvailable(inventory.getQuantityAvailable() - reservation.getQuantityReserved());
+            inventoryRepository.save(inventory);
+
+            reservation.setStatus(ReservationStatus.CONFIRMED);
+            reservation.setConfirmedAt(LocalDateTime.now());
+            stockReservationRepository.save(reservation);
+
+            StockMovement movement = StockMovement.builder()
+                    .inventoryId(inventory.getInventoryId())
+                    .movementType(MovementType.RELEASE)
+                    .quantity(reservation.getQuantityReserved())
+                    .previousQuantity(inventory.getQuantityAvailable())
+                    .newQuantity(inventory.getQuantityAvailable())
+                    .referenceId(orderId)
+                    .referenceType("ORDER")
+                    .reason("Order Confirmed")
+                    .createdBy("SYSTEM")
+                    .build();
+            stockMovementRepository.save(movement);
+
+
+            String payload;
+            try{
+                StockReservationResponseDTO responseDTO = toReservationResponseDTO(reservation);
+                payload = objectMapper.writeValueAsString(responseDTO);
+            }
+            catch (JsonProcessingException e){
+                log.error("Error serializing stock reservation response: {}", e.getMessage());
+                throw new RuntimeException("Error serializing stock reservation response:");
+
+            }
+            OutboxEvent outboxEvent = OutboxEvent.builder()
+                    .aggregateId(orderId)
+                    .aggregateType("ORDER")
+                    .eventType(EventType.RESERVATION_CONFIRMED)
+                    .payload(payload)
+                    .published(false)
+                    .build();
+                    outboxEventRepository.save(outboxEvent);
+        }
+        log.info("Confirmed reservations for orderId: {}", orderId);
+        return reservations.stream()
+                .map(this::toReservationResponseDTO)
+                .toList();
+    }
 
 
 
-//HELPER METHODS
+
+    //HELPER METHODS
     private Inventory getInventoryOrThrow(UUID productId) {
         return inventoryRepository.findByProductId(productId)
                 .orElseThrow(() -> new InventoryNotFoundException(productId.toString()));
@@ -264,6 +404,33 @@ public class InventoryService {
                 && updateRequestDTO.getReorderLevel() == null
                 && updateRequestDTO.getReorderQuantity() == null
                 && updateRequestDTO.getWarehouseLocation() == null;
+    }
+    private StockReservationResponseDTO toReservationResponseDTO(StockReservation reservation) {
+        return StockReservationResponseDTO.builder()
+                .reservationId(reservation.getReservationId())
+                .orderId(reservation.getOrderId())
+                .productId(reservation.getProductId())
+                .quantityReserved(reservation.getQuantityReserved())
+                .reservationStatus(reservation.getStatus())
+                .expiresAt(reservation.getExpiresAt())
+                .createdAt(reservation.getCreatedAt())
+                .build();
+    }
+
+    private void publishStockReservedEvent(UUID orderId, List<ReservationItemDTO> items) {
+        try {
+            String payload = objectMapper.writeValueAsString(items);
+            OutboxEvent event = OutboxEvent.builder()
+                    .aggregateId(orderId)
+                    .aggregateType("INVENTORY")
+                    .eventType(EventType.STOCK_RESERVED)
+                    .payload(payload)
+                    .published(false)
+                    .build();
+            outboxEventRepository.save(event);
+        } catch (JsonProcessingException e) {
+            log.error("Error serializing stock reserved event: {}", e.getMessage());
+        }
     }
 
 }
