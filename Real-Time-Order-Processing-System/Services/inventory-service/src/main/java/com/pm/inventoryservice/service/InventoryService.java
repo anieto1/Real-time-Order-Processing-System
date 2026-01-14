@@ -305,10 +305,15 @@ public class InventoryService {
         if(reservations.isEmpty()){
             throw new StockOperationException("No reservations found for orderId: " + orderId);
         }
+
         for(StockReservation reservation : reservations){
             if(reservation.getStatus() == ReservationStatus.CONFIRMED){
-                throw new InvalidReservationStateException("Reservation already confirmed for orderId: " + orderId);
+                log.info("Reservation already confirmed for orderId: {}, returning existing", orderId);
+                return reservations.stream()
+                        .map(this::toReservationResponseDTO)
+                        .toList();
             }
+
             if(reservation.getStatus() == ReservationStatus.RELEASED || reservation.getStatus() == ReservationStatus.EXPIRED){
                 throw new InvalidReservationStateException("Reservation already released or expired for orderId: " + orderId);
             }
@@ -316,25 +321,29 @@ public class InventoryService {
             if (reservation.getExpiresAt() != null && reservation.getExpiresAt().isBefore(LocalDateTime.now())) {
                 throw new InvalidReservationStateException("Reservation has expired for orderId: " + orderId);
             }
-            
+        }
+
+        LocalDateTime now = LocalDateTime.now();
+
+        for(StockReservation reservation : reservations){
             Inventory inventory = getInventoryOrThrow(reservation.getProductId());
+            int previousReserved = inventory.getQuantityReserved();
             inventory.setQuantityReserved(inventory.getQuantityReserved() - reservation.getQuantityReserved());
-            inventory.setQuantityAvailable(inventory.getQuantityAvailable() - reservation.getQuantityReserved());
             inventoryRepository.save(inventory);
 
             reservation.setStatus(ReservationStatus.CONFIRMED);
-            reservation.setConfirmedAt(LocalDateTime.now());
+            reservation.setConfirmedAt(now);
             stockReservationRepository.save(reservation);
 
             StockMovement movement = StockMovement.builder()
                     .inventoryId(inventory.getInventoryId())
-                    .movementType(MovementType.RELEASE)
+                    .movementType(MovementType.RESERVATION_CONFIRMED)
                     .quantity(reservation.getQuantityReserved())
-                    .previousQuantity(inventory.getQuantityAvailable())
-                    .newQuantity(inventory.getQuantityAvailable())
+                    .previousQuantity(previousReserved)
+                    .newQuantity(inventory.getQuantityReserved())
                     .referenceId(orderId)
                     .referenceType("ORDER")
-                    .reason("Order Confirmed")
+                    .reason("Order confirmed")
                     .createdBy("SYSTEM")
                     .build();
             stockMovementRepository.save(movement);
