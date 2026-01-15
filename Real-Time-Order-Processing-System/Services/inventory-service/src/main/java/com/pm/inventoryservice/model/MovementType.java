@@ -7,5 +7,6 @@ public enum MovementType {
     DEDUCTION,
     RESTOCK,
     ADJUSTMENT,
+    RESERVATION_RELEASED,
     RETURN
 }

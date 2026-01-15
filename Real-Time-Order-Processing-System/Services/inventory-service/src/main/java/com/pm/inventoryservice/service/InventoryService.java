@@ -52,19 +52,19 @@ public class InventoryService {
         Inventory newInventory = inventoryMapper.toEntity(createRequestDTO);
         newInventory.setQuantityAvailable(quantity);
         inventoryRepository.save(newInventory);
-        
-        
-        
+
+
+
         String payload;
         try{
             InventoryResponseDTO responseDTO = inventoryMapper.toResponseDTO(newInventory);
             payload = objectMapper.writeValueAsString(responseDTO);
-            
+
         } catch (JsonProcessingException e) {
             log.error("Error serializing inventory response: {}", e.getMessage());
             throw new RuntimeException("Error serializing inventory response:");
         }
-        
+
         OutboxEvent event = OutboxEvent.builder()
                 .aggregateId(newInventory.getInventoryId())
                 .aggregateType("INVENTORY")
@@ -73,8 +73,8 @@ public class InventoryService {
                 .published(false)
                 .build();
         outboxEventRepository.save(event);
-        
-        
+
+
         
         return inventoryMapper.toResponseDTO(newInventory);
     }
@@ -347,18 +347,13 @@ public class InventoryService {
                     .createdBy("SYSTEM")
                     .build();
             stockMovementRepository.save(movement);
+        }
 
+        try{
+            String payload = objectMapper.writeValueAsString(reservations.stream()
+                    .map(this::toReservationResponseDTO)
+                    .toList());
 
-            String payload;
-            try{
-                StockReservationResponseDTO responseDTO = toReservationResponseDTO(reservation);
-                payload = objectMapper.writeValueAsString(responseDTO);
-            }
-            catch (JsonProcessingException e){
-                log.error("Error serializing stock reservation response: {}", e.getMessage());
-                throw new RuntimeException("Error serializing stock reservation response:");
-
-            }
             OutboxEvent outboxEvent = OutboxEvent.builder()
                     .aggregateId(orderId)
                     .aggregateType("ORDER")
@@ -366,12 +361,87 @@ public class InventoryService {
                     .payload(payload)
                     .published(false)
                     .build();
-                    outboxEventRepository.save(outboxEvent);
+            outboxEventRepository.save(outboxEvent);
+        } catch (JsonProcessingException e){
+            log.error("Error serializing stock reservation response: {}", e.getMessage());
+            throw new RuntimeException("Error serializing stock reservation response");
         }
+
         log.info("Confirmed reservations for orderId: {}", orderId);
         return reservations.stream()
                 .map(this::toReservationResponseDTO)
                 .toList();
+    }
+
+    @Transactional
+    public void releaseReservation(UUID orderId){
+        List<StockReservation> reservations = stockReservationRepository.findByOrderId(orderId);
+        if(reservations.isEmpty()){
+            throw new StockOperationException("No reservations found for orderId: " + orderId);
+        }
+        for(StockReservation reservation : reservations){
+            if(reservation.getStatus() == ReservationStatus.RELEASED){
+                log.info("Reservation already released for orderId: {}, returning existing", orderId);
+                return;
+            }
+
+            if(reservation.getStatus() == ReservationStatus.CONFIRMED){
+                throw new InvalidReservationStateException("Reservation already confirmed for orderId: " + orderId);
+            }
+        }
+
+
+
+
+        for(StockReservation reservation : reservations){
+            Inventory inventory = getInventoryOrThrow(reservation.getProductId());
+            int previousAvailable = inventory.getQuantityAvailable();
+            int previousReserved = inventory.getQuantityReserved();
+
+            inventory.setQuantityAvailable(inventory.getQuantityAvailable() + reservation.getQuantityReserved());
+            inventory.setQuantityReserved(inventory.getQuantityReserved() - reservation.getQuantityReserved());
+            inventoryRepository.save(inventory);
+
+            reservation.setStatus(ReservationStatus.RELEASED);
+            reservation.setReleasedAt(LocalDateTime.now());
+            stockReservationRepository.save(reservation);
+
+            StockMovement movement = StockMovement.builder()
+                    .inventoryId(inventory.getInventoryId())
+                    .movementType(MovementType.RESERVATION_RELEASED)
+                    .quantity(reservation.getQuantityReserved())
+                    .previousQuantity(previousAvailable)
+                    .newQuantity(inventory.getQuantityAvailable())
+                    .referenceId(orderId)
+                    .referenceType("ORDER")
+                    .reason("Reservation released")
+                    .createdBy("SYSTEM")
+                    .build();
+            stockMovementRepository.save(movement);
+
+
+        }
+        try{
+            String payload = objectMapper.writeValueAsString(reservations.stream()
+                    .map(this::toReservationResponseDTO)
+                    .toList());
+
+            OutboxEvent outboxEvent = OutboxEvent.builder()
+                    .aggregateId(orderId)
+                    .aggregateType("ORDER")
+                    .eventType(EventType.RESERVATION_RELEASED)
+                    .payload(payload)
+                    .published(false)
+                    .build();
+            outboxEventRepository.save(outboxEvent);
+        } catch (JsonProcessingException e){
+            log.error("Error serializing reservation release: {}", e.getMessage());
+            throw new RuntimeException("Error serializing reservation release");
+        }
+
+        log.info("Released reservations for orderId: {}", orderId);
+
+
     }
 
 
