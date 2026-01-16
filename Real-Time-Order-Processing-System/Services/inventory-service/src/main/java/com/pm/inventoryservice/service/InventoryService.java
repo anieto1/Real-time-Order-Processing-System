@@ -7,6 +7,7 @@ import com.pm.inventoryservice.dto.request.*;
 import com.pm.inventoryservice.dto.response.InventoryResponseDTO;
 import com.pm.inventoryservice.dto.response.StockCheckResponseDTO;
 import com.pm.inventoryservice.dto.response.StockReservationResponseDTO;
+import com.pm.inventoryservice.exception.DuplicateProductException;
 import com.pm.inventoryservice.exception.InvalidReservationStateException;
 import com.pm.inventoryservice.exception.InventoryNotFoundException;
 import com.pm.inventoryservice.exception.StockOperationException;
@@ -46,13 +47,27 @@ public class InventoryService {
 
     @Transactional
     public InventoryResponseDTO createInventory(InventoryCreateRequestDTO createRequestDTO, Integer quantity) {
-        Inventory inventory = inventoryRepository.findByProductId(createRequestDTO.getProductId())
-                .orElseThrow(() -> new InventoryNotFoundException(createRequestDTO.getProductId().toString()));
+        inventoryRepository.findByProductId(createRequestDTO.getProductId())
+                .ifPresent(existing -> {
+                    throw new DuplicateProductException("Inventory already exists for productId: " + createRequestDTO.getProductId());
+                });
 
         Inventory newInventory = inventoryMapper.toEntity(createRequestDTO);
         newInventory.setQuantityAvailable(quantity);
         inventoryRepository.save(newInventory);
 
+        StockMovement movement = StockMovement.builder()
+                .inventoryId(newInventory.getInventoryId())
+                .movementType(MovementType.INVENTORY_CREATED)
+                .quantity(quantity)
+                .previousQuantity(0)
+                .newQuantity(quantity)
+                .referenceId(newInventory.getInventoryId())
+                .referenceType("INVENTORY")
+                .reason("Inventory created")
+                .createdBy("SYSTEM")
+                .build();
+        stockMovementRepository.save(movement);
 
 
         String payload;
@@ -66,9 +81,9 @@ public class InventoryService {
         }
 
         OutboxEvent event = OutboxEvent.builder()
-                .aggregateId(newInventory.getInventoryId())
+                .aggregateId(newInventory.getProductId())
                 .aggregateType("INVENTORY")
-                .eventType(EventType.STOCK_RESTOCKED)
+                .eventType(EventType.INVENTORY_CREATED)
                 .payload(payload)
                 .published(false)
                 .build();
@@ -102,6 +117,7 @@ public class InventoryService {
     @Transactional
     public InventoryResponseDTO updateInventory(UUID productId, InventoryUpdateRequestDTO updateRequestDTO) {
         Inventory inventory = getInventoryOrThrow(productId);
+        int previousAvailable = inventory.getQuantityAvailable();
 
         if (isEmptyUpdate(updateRequestDTO)) {
             throw new StockOperationException("Update request must contain at least one field to update");
@@ -137,6 +153,38 @@ public class InventoryService {
             checkAndPublishLowStockAlert(updatedInventory);
         }
 
+        StockMovement movement = StockMovement.builder()
+                .inventoryId(inventory.getInventoryId())
+                .movementType(MovementType.INVENTORY_UPDATED)
+                .quantity(inventory.getQuantityAvailable())
+                .previousQuantity(previousAvailable)
+                .newQuantity(inventory.getQuantityAvailable())
+                .referenceId(updatedInventory.getProductId())
+                .referenceType("INVENTORY")
+                .reason("Inventory updated")
+                .createdBy("SYSTEM")
+                .build();
+        stockMovementRepository.save(movement);
+
+
+        String payload;
+        try{
+            InventoryResponseDTO responseDTO = inventoryMapper.toResponseDTO(updatedInventory);
+            payload = objectMapper.writeValueAsString(responseDTO);
+
+        } catch (JsonProcessingException e) {
+            log.error("Error serializing inventory update response: {}", e.getMessage());
+            throw new RuntimeException("Error serializing inventory response:");
+        }
+        OutboxEvent event = OutboxEvent.builder()
+                .aggregateId(updatedInventory.getProductId())
+                .aggregateType("INVENTORY")
+                .eventType(EventType.INVENTORY_UPDATED)
+                .payload(payload)
+                .published(false)
+                .build();
+        outboxEventRepository.save(event);
+
         log.info("Updated inventory for productId: {}", productId);
         return inventoryMapper.toResponseDTO(updatedInventory);
     }
@@ -160,7 +208,7 @@ public class InventoryService {
             throw new StockOperationException("Cannot delete inventory with available quantity");
         }
 
-        outboxEventRepository.deleteByAggregateIdAndPublishedFalse(inventory.getInventoryId());
+        outboxEventRepository.deleteByAggregateIdAndPublishedFalse(inventory.getProductId());
         inventory.setDeletedAt(LocalDateTime.now());
         inventoryRepository.save(inventory);
         log.info("Deleted inventory for productId: {}", productId);
@@ -216,9 +264,46 @@ public class InventoryService {
 
     @Transactional
     public InventoryResponseDTO addStock(UUID productId, int quantity, String reason) {
+        if (quantity <= 0) {
+            throw new StockOperationException("Quantity must be positive");
+        }
+
         Inventory inventory = getInventoryOrThrow(productId);
+        int previousQuantity = inventory.getQuantityAvailable();
+
         inventory.setQuantityAvailable(inventory.getQuantityAvailable() + quantity);
         inventoryRepository.save(inventory);
+
+        StockMovement movement = StockMovement.builder()
+                .inventoryId(inventory.getInventoryId())
+                .movementType(MovementType.STOCK_ADDED)
+                .quantity(quantity)
+                .previousQuantity(previousQuantity)
+                .newQuantity(inventory.getQuantityAvailable())
+                .referenceId(inventory.getInventoryId())
+                .referenceType("INVENTORY")
+                .reason(reason)
+                .createdBy("SYSTEM")
+                .build();
+        stockMovementRepository.save(movement);
+
+        try {
+            InventoryResponseDTO responseDTO = inventoryMapper.toResponseDTO(inventory);
+            String payload = objectMapper.writeValueAsString(responseDTO);
+
+            OutboxEvent event = OutboxEvent.builder()
+                    .aggregateId(inventory.getProductId())
+                    .aggregateType("INVENTORY")
+                    .eventType(EventType.STOCK_ADDED)
+                    .payload(payload)
+                    .published(false)
+                    .build();
+            outboxEventRepository.save(event);
+        } catch (JsonProcessingException e) {
+            log.error("Error serializing stock added event: {}", e.getMessage());
+            throw new RuntimeException("Error serializing stock added event");
+        }
+
         log.info("Added {} to inventory for productId: {}, reason: {}", quantity, productId, reason);
         return inventoryMapper.toResponseDTO(inventory);
     }
@@ -227,8 +312,46 @@ public class InventoryService {
     @Transactional
     public InventoryResponseDTO adjustStock(UUID productId, StockAdjustmentRequestDTO adjustmentRequestDTO){
         Inventory inventory = getInventoryOrThrow(productId);
-        inventory.setQuantityAvailable(inventory.getQuantityAvailable() + adjustmentRequestDTO.getQuantity());
+        int previousQuantity = inventory.getQuantityAvailable();
+        int newQuantity = inventory.getQuantityAvailable() + adjustmentRequestDTO.getQuantity();
+
+        if (newQuantity < 0) {
+            throw new StockOperationException("Adjustment would result in negative quantity");
+        }
+
+        inventory.setQuantityAvailable(newQuantity);
         inventoryRepository.save(inventory);
+
+        StockMovement movement = StockMovement.builder()
+                .inventoryId(inventory.getInventoryId())
+                .movementType(adjustmentRequestDTO.getQuantity() > 0 ? MovementType.STOCK_ADDED : MovementType.STOCK_REMOVED)
+                .quantity(Math.abs(adjustmentRequestDTO.getQuantity()))
+                .previousQuantity(previousQuantity)
+                .newQuantity(newQuantity)
+                .referenceId(inventory.getInventoryId())
+                .referenceType("INVENTORY")
+                .reason(adjustmentRequestDTO.getReason())
+                .createdBy("SYSTEM")
+                .build();
+        stockMovementRepository.save(movement);
+
+        try {
+            InventoryResponseDTO responseDTO = inventoryMapper.toResponseDTO(inventory);
+            String payload = objectMapper.writeValueAsString(responseDTO);
+
+            OutboxEvent event = OutboxEvent.builder()
+                    .aggregateId(inventory.getProductId())
+                    .aggregateType("INVENTORY")
+                    .eventType(EventType.STOCK_ADJUSTED)
+                    .payload(payload)
+                    .published(false)
+                    .build();
+            outboxEventRepository.save(event);
+        } catch (JsonProcessingException e) {
+            log.error("Error serializing stock adjustment event: {}", e.getMessage());
+            throw new RuntimeException("Error serializing stock adjustment event");
+        }
+
         log.info("Adjusted inventory for productId: {}, reason: {}", productId, adjustmentRequestDTO.getReason());
         return inventoryMapper.toResponseDTO(inventory);
     }
@@ -393,6 +516,8 @@ public class InventoryService {
 
 
 
+        LocalDateTime now = LocalDateTime.now();
+
         for(StockReservation reservation : reservations){
             Inventory inventory = getInventoryOrThrow(reservation.getProductId());
             int previousAvailable = inventory.getQuantityAvailable();
@@ -403,7 +528,7 @@ public class InventoryService {
             inventoryRepository.save(inventory);
 
             reservation.setStatus(ReservationStatus.RELEASED);
-            reservation.setReleasedAt(LocalDateTime.now());
+            reservation.setReleasedAt(now);
             stockReservationRepository.save(reservation);
 
             StockMovement movement = StockMovement.builder()
@@ -465,7 +590,7 @@ public class InventoryService {
                 String payload = objectMapper.writeValueAsString(responseDTO);
 
                 OutboxEvent event = OutboxEvent.builder()
-                        .aggregateId(inventory.getInventoryId())
+                        .aggregateId(inventory.getProductId())
                         .aggregateType("INVENTORY")
                         .eventType(EventType.LOW_STOCK_ALERT)
                         .payload(payload)
@@ -501,7 +626,7 @@ public class InventoryService {
             String payload = objectMapper.writeValueAsString(items);
             OutboxEvent event = OutboxEvent.builder()
                     .aggregateId(orderId)
-                    .aggregateType("INVENTORY")
+                    .aggregateType("ORDER")
                     .eventType(EventType.STOCK_RESERVED)
                     .payload(payload)
                     .published(false)
