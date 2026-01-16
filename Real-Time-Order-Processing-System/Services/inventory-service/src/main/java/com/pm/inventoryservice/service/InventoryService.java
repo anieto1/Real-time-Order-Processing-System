@@ -6,6 +6,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.pm.inventoryservice.dto.request.*;
 import com.pm.inventoryservice.dto.response.InventoryResponseDTO;
 import com.pm.inventoryservice.dto.response.StockCheckResponseDTO;
+import com.pm.inventoryservice.dto.response.StockMovementResponseDTO;
 import com.pm.inventoryservice.dto.response.StockReservationResponseDTO;
 import com.pm.inventoryservice.exception.DuplicateProductException;
 import com.pm.inventoryservice.exception.InvalidReservationStateException;
@@ -568,6 +569,65 @@ public class InventoryService {
 
 
     }
+    
+//Query operations
+
+    @Transactional(readOnly = true)
+    public List<StockCheckResponseDTO> getLowStockItems() {
+        List<Inventory> lowStockInventories = inventoryRepository.findAll().stream()
+                .filter(inventory -> inventory.getQuantityAvailable() <= inventory.getReorderLevel())
+                .toList();
+
+        return lowStockInventories.stream()
+                .map(inventory -> StockCheckResponseDTO.builder()
+                        .productId(inventory.getProductId())
+                        .available(false)
+                        .quantityAvailable(inventory.getQuantityAvailable())
+                        .quantityRequested(inventory.getReorderQuantity())
+                        .quantityReserved(inventory.getQuantityReserved())
+                        .build())
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<StockMovementResponseDTO> getStockMovementHistory(UUID productId) {
+        Inventory inventory = getInventoryOrThrow(productId);
+
+        List<StockMovement> movements = stockMovementRepository.findByInventoryIdOrderByCreatedAtDesc(inventory.getInventoryId());
+
+        return movements.stream()
+                .map(movement -> StockMovementResponseDTO.builder()
+                        .movementId(movement.getMovementId())
+                        .movementType(movement.getMovementType())
+                        .quantity(movement.getQuantity())
+                        .previousQuantity(movement.getPreviousQuantity())
+                        .newQuantity(movement.getNewQuantity())
+                        .referenceId(movement.getReferenceId())
+                        .referenceType(movement.getReferenceType())
+                        .reason(movement.getReason())
+                        .createdAt(movement.getCreatedAt())
+                        .build())
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<StockReservationResponseDTO> getReservationsByOrderId(UUID orderId) {
+        if (orderId == null) {
+            throw new IllegalArgumentException("Order ID cannot be null");
+        }
+
+        List<StockReservation> reservations = stockReservationRepository.findByOrderId(orderId);
+
+        if (reservations.isEmpty()) {
+            log.debug("No reservations found for orderId: {}", orderId);
+        }
+
+        return reservations.stream()
+                .map(this::toReservationResponseDTO)
+                .toList();
+    }
+
+        
 
 
 
