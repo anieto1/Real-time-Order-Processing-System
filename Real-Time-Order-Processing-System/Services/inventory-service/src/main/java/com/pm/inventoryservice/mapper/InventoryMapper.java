@@ -1,6 +1,6 @@
 package com.pm.inventoryservice.mapper;
 
-import com.pm.inventoryservice.dto.request.InventoryCreateRequestDTO;
+import  com.pm.inventoryservice.dto.request.InventoryCreateRequestDTO;
 import com.pm.inventoryservice.dto.response.InventoryResponseDTO;
 import com.pm.inventoryservice.model.Inventory;
 import org.mapstruct.*;

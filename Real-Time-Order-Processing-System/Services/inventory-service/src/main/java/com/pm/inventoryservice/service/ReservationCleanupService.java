@@ -17,7 +17,6 @@ public class ReservationCleanupService  {
 
     private final StockReservationRepository stockReservationRepository;
     private final InventoryService inventoryService;
-    @Scheduled(fixedRate = 500000 )
     @Scheduled(fixedRate = 500000)
     public void cleanUpExpiredReservations() {
 
