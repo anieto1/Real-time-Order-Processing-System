@@ -51,6 +51,9 @@ public class DeadLetterEvent {
     @Column(name = "resolved", nullable = false)
     private boolean resolved = false;
 
+    @Column(name = "status", nullable = false)
+    private DLQStatus status;
+
     @Column(name = "resolved_at")
     private LocalDateTime resolvedAt;
 
