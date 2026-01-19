@@ -18,7 +18,8 @@ import java.util.UUID;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-@Table(name = "stock_reservation")
+@Table(name = "stock_reservation",
+uniqueConstraints = @UniqueConstraint(columnNames = {"order_id", "product_id"}))
 public class StockReservation {
 
     @Id
